@@ -1,0 +1,4 @@
+name = Appointment Node Validator
+description = Validare la node/add/appointment
+core = 7.x
+package = Experimental
