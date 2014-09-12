@@ -1,16 +1,9 @@
 <?php
-
-/* 
- * @file
+/** @file
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-/**
-* Implements of hook_init().
-*/
-function appointmentvalid_init() {
-  //drupal_set_message('Our module is alive!');
-}
+
 /**
  * Implements hook_form_alter().
  */
@@ -23,71 +16,66 @@ function appointmentvalid_form_alter(&$form, &$form_state, $form_id) {
      '#markup' => t('You are about to create a new appointment (PBC)'),
      '#weight' => -6,
    );
-   
-   //@todo: studdy https://api.drupal.org/api/drupal/developer!topics!forms_api_reference.html/7#element_validate
-   
-    $form["#validate"][] = 'appointmentvalid_form_validate';
-  }
- }
-
- function appointmentvalid_form_validate($form, &$form_state) {
-  $exists_in_database = FALSE;
-  $time_value = $form_state['values']['field_appointment_date']['und']['0']['value'];
-  $doctor_id = $form_state['values']['field_appointment_doctor']['und']['0']['target_id'];
-  
-  // @TODO: Ttry Entity Field Query.
-  
-  $sql = db_select('field_data_field_appointment_date', 'fadate'); //  select Tabelul de APPOINTMENT DATE
-  $sql->join('field_data_field_appointment_doctor', 'fadoc', 'fadoc.entity_id = fadate.entity_id'); // Join cu tabelul de APPOINTMENT DOCTOR
-  $sql->fields('fadate', array('field_appointment_date_value'))//Preluam Field-ul cu valoarea datei
-      ->condition('field_appointment_date_value', $time_value)
-      ->fields('fadoc' , array('field_appointment_doctor_target_id')); //Preluam fieldul cu valoarea doctorului.
-  $results = $sql->execute(); // Executam query-ul
- 
-  // Add LIMIT 1 to this sql querry
-  //Return the appointment found , not the number of appointments found.. (should be max 1)
-  //Remove foreach
-  foreach ($results as $result) { 
-   $exists_in_database = TRUE;
-  }
-  
-  // @todo: add appointment link / details in the message.
-  if ($exists_in_database) {
-   form_set_error('field_appointment_date', t('This date is ALREADY TAKEN.'));
+   $form["#validate"][] = 'appointmentvalid_form_validate';
   }
 }
-
-/**
- * SQL db_select testing.
- * Helper function to return if an appointment exists in the database
- * on a given time for a given user id
- */
-function _appointment_exists_sql($time, $user_id) {
-// return $node / FALSE.
-}
-
 /**
  * EFQ testing.
  * @TODO: https://www.drupal.org/node/1343708
  * Helper function to return if an appointment exists in the database
- * on a given time for a given user id
+ * on a given time for a given doctor id
  */
-
-function _appointment_exists_efq($time, $user_id) {
-
-// return $node / FALSE.
+function appointment_exists_efq($time, $doctor_id) {
+      $query = new EntityFieldQuery();
+      $query->entityCondition('entity_type', 'node')
+            ->entityCondition('bundle', 'appointment')
+            ->propertyCondition('status', 1)
+            ->fieldCondition('field_appointment_date', 'value', $time, '=')
+            ->fieldCondition('field_appointment_doctor','target_id', $doctor_id, '=')
+            ->range(0, 1); // Limit 1 ???
+      $result = $query->execute();
+   
+      if (isset($result['node'])) {
+             dpm('There ALREADY is an appointment on that date/hour for doctor with ID : ' . $doctor_id);
+             $nodes_nids = array_keys($result['node']);
+             $nodes_items = entity_load('node', $nodes_nids);  //dpm($nodes_nids[0]); // Obtinem valoarea node id-ului existent.
+      }else{
+         //dpm('There isn\'t ANY appointment on : ' . $time .' for doctor ' . $doctor_id);
+         $nodes_nids = FALSE;
+           }
+     return $nodes_nids;
 }
 
-//$tabel_data = db_select('field_data_field_appointment_date');
+function appointmentvalid_form_validate($form, &$form_state) {
+  
+    $input_time_value = $form_state['values']['field_appointment_date']['und']['0']['value']; // Input-ul de Time Value din form
+    $input_doctor_id = $form_state['values']['field_appointment_doctor']['und']['0']['target_id']; //Input-ul de Doctor din form
+    $db_existing_value = $input_time_value;
+    $doctor_id = $input_doctor_id;
+    
+   $existing_node = appointment_exists_efq($db_existing_value, $doctor_id);
+   if ($existing_node) {
+     form_set_error('field_appointment_date', t('Please check the form and the data you inputed !!!'));
+     //form_set_error('field_appointment_date', t('The node id that allready exist for that input is : ' . $existing_node['0']));
+   }
+}
 
-//sele from field_data_field_appoinment date 
 
-// table name : field_data_field_appointment_date = NUME TABEL
-// field name : field_appointment_date_value   =  VALOAREA TIMPULUI
+//@todo: studdy https://api.drupal.org/api/drupal/developer!topics!forms_api_reference.html/7#element_validate
+
+///**
+// * SQL db_select testing.
+// * Helper function to return if an appointment exists in the database
+// * on a given time for a given user id
+// */
+//function _appointment_exists_sql($time, $doctor_id) {
+//will// return $node / FALSE.
+//}
+
+// table name : field_data_field_appointment_date = TABEL NAME
+// field name : field_appointment_date_value   =  FIELD VALUE
 // entity id  : entity_id = CHEIE COMUNA (cred)
 
-// table name : field_data_field_appointment_doctor = NUME TABEL2
-// field name : field_appointment_doctor_target_id = VALOAREA (id DOCTOR)
+// table name : field_data_field_appointment_doctor = TABEL NAME2
+// field name : field_appointment_doctor_target_id = VALUE (id DOCTOR)
 // entity id  : entity_id = CHEIE COMUNA (cred)
-//$query = "SELECT `entity_id` FROM `field_data_field_appointment_date` WHERE `field_appointment_date_value` == $time_value";
-//dpm($query);   
