@@ -25,7 +25,7 @@ function appointmentvalid_form_alter(&$form, &$form_state, $form_id) {
  * Helper function to return if an appointment exists in the database
  * on a given time for a given doctor id
  */
-function appointment_exists_efq($time, $doctor_id) {
+function appointment_get($time, $doctor_id) {
       $query = new EntityFieldQuery();
       $query->entityCondition('entity_type', 'node')
             ->entityCondition('bundle', 'appointment')
@@ -34,16 +34,15 @@ function appointment_exists_efq($time, $doctor_id) {
             ->fieldCondition('field_appointment_doctor','target_id', $doctor_id, '=')
             ->range(0, 1); // Limit 1 ???
       $result = $query->execute();
-   
+      
       if (isset($result['node'])) {
-             dpm('There ALREADY is an appointment on that date/hour for doctor with ID : ' . $doctor_id);
+        
              $nodes_nids = array_keys($result['node']);
-             $nodes_items = entity_load('node', $nodes_nids);  //dpm($nodes_nids[0]); // Obtinem valoarea node id-ului existent.
-      }else{
-         //dpm('There isn\'t ANY appointment on : ' . $time .' for doctor ' . $doctor_id);
-         $nodes_nids = FALSE;
-           }
-     return $nodes_nids;
+             $nodes_items = entity_load('node', $nodes_nids); 
+             return $nodes_nids[0];
+      }
+      
+     return FALSE;
 }
 
 function appointmentvalid_form_validate($form, &$form_state) {
@@ -53,13 +52,19 @@ function appointmentvalid_form_validate($form, &$form_state) {
     $db_existing_value = $input_time_value;
     $doctor_id = $input_doctor_id;
     
-   $existing_node = appointment_exists_efq($db_existing_value, $doctor_id);
-   if ($existing_node) {
+   $existing_appointment = appointment_get($db_existing_value, $doctor_id);
+   if ($existing_appointment != FALSE) {
+     
      form_set_error('field_appointment_date', t('Please check the form and the data you inputed !!!'));
-     //form_set_error('field_appointment_date', t('The node id that allready exist for that input is : ' . $existing_node['0']));
+     
    }
 }
 
+
+
+
+//form_set_error('field_appointment_date', t('The node id that allready exist for that input is : ' . $existing_node['0']));
+//  dpm('There ALREADY is an appointment on that date/hour for doctor with ID : ' . $doctor_id);
 
 //@todo: studdy https://api.drupal.org/api/drupal/developer!topics!forms_api_reference.html/7#element_validate
 
